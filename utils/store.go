@@ -21,29 +21,33 @@ func NewRedisClient() *redis.Client {
 	return rdb
 }
 
-// Save short URL → original URL
-func SetKey(
-	ctx *context.Context,
-	rdb *redis.Client,
-	key string,
-	value string,
-	ttl int,
-) {
-	fmt.Println("Setting key", key, "to", value, "in Redis")
+func NextID(ctx context.Context, rdb *redis.Client) (uint64, error) {
+	id, err := rdb.Incr(ctx, "url-shortener:next-id").Result()
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate URL ID: %w", err)
+	}
+	return uint64(id), nil
+}
 
-	rdb.Set(*ctx, key, value, 0)
-
-	fmt.Println("The key", key, "has been set to", value, "successfully")
+func SetLongURL(ctx context.Context, rdb *redis.Client, id uint64, value string) error {
+	if err := rdb.Set(ctx, fmt.Sprintf("url:%d", id), value, 0).Err(); err != nil {
+		return fmt.Errorf("failed to save URL: %w", err)
+	}
+	return nil
 }
 
 // Get original URL using short URL
 func GetLongURL(
-	ctx *context.Context,
+	ctx context.Context,
 	rdb *redis.Client,
 	shortURL string,
 ) (string, error) {
+	id, err := DecodeBase62(shortURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid short code: %w", err)
+	}
 
-	longURL, err := rdb.Get(*ctx, shortURL).Result()
+	longURL, err := rdb.Get(ctx, fmt.Sprintf("url:%d", id)).Result()
 
 	if err == redis.Nil {
 		return "", fmt.Errorf("short URL not found")

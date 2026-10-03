@@ -28,15 +28,22 @@ func main() {
 
 		fmt.Println("Payload: ", url)
 
-		shortUrl := utils.GetShortCode()
+		id, err := utils.NextID(ctx, dbClient)
+		if err != nil {
+			http.Error(w, "Failed to generate short URL", http.StatusInternalServerError)
+			return
+		}
+		shortUrl := utils.EncodeBase62(id)
 
 		fullShortUrl := fmt.Sprintf("http://localhost:8080/r/%s", shortUrl)
 
 		// Generated short URL
 		fmt.Printf("Generated short URL: %s\n", fullShortUrl)
 
-		// Set the key in Redis
-		utils.SetKey(&ctx, dbClient, shortUrl, url, 0)
+		if err := utils.SetLongURL(ctx, dbClient, id, url); err != nil {
+			http.Error(w, "Failed to save short URL", http.StatusInternalServerError)
+			return
+		}
 	})
 
 	http.HandleFunc("/r/{code}", func(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +52,7 @@ func main() {
 
 		// Find original URL in Redis
 		longURL, err := utils.GetLongURL(
-			&ctx,
+			ctx,
 			dbClient,
 			code,
 		)
