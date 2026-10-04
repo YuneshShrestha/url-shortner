@@ -42,3 +42,31 @@ func TestDecodeBase62RejectsInvalidValues(t *testing.T) {
 		}
 	}
 }
+
+func TestObfuscatedIDRoundTrip(t *testing.T) {
+	obfuscationKey = []byte("test-secret")
+
+	seen := map[string]bool{}
+	for _, id := range []uint64{0, 1, 2, 3, 100, 101, 12510, maxID} {
+		code, err := EncodeID(id)
+		if err != nil {
+			t.Fatalf("EncodeID(%d) returned error: %v", id, err)
+		}
+		if seen[code] {
+			t.Fatalf("EncodeID(%d) = %q collides", id, code)
+		}
+		seen[code] = true
+
+		got, err := DecodeID(code)
+		if err != nil || got != id {
+			t.Fatalf("DecodeID(%q) = %d, %v; want %d", code, got, err, id)
+		}
+	}
+
+	if code, _ := EncodeID(1); code == EncodeBase62(1) {
+		t.Fatalf("EncodeID(1) = %q, not obfuscated", code)
+	}
+	if _, err := EncodeID(maxID + 1); err == nil {
+		t.Fatal("EncodeID(maxID+1) expected an error")
+	}
+}

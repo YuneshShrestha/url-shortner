@@ -42,7 +42,7 @@ func GetLongURL(
 	rdb *redis.Client,
 	shortURL string,
 ) (string, error) {
-	id, err := DecodeBase62(shortURL)
+	id, err := DecodeID(shortURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid short code: %w", err)
 	}

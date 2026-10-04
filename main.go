@@ -5,11 +5,23 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 var ctx = context.Background()
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Warning: .env file not found")
+	}
+	// Changing this secret changes every short code, so set it once and keep it.
+	if os.Getenv("URL_SHORTENER_SECRET") == "" {
+		fmt.Println("URL_SHORTENER_SECRET must be set")
+		return
+	}
+
 	dbClient := utils.NewRedisClient()
 
 	if dbClient == nil {
@@ -33,7 +45,11 @@ func main() {
 			http.Error(w, "Failed to generate short URL", http.StatusInternalServerError)
 			return
 		}
-		shortUrl := utils.EncodeBase62(id)
+		shortUrl, err := utils.EncodeID(id)
+		if err != nil {
+			http.Error(w, "Failed to generate short URL", http.StatusInternalServerError)
+			return
+		}
 
 		fullShortUrl := fmt.Sprintf("http://localhost:8080/r/%s", shortUrl)
 
